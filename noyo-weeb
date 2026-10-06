@@ -1,0 +1,278 @@
+#!/bin/bash
+
+# 1cm == 27.737pix
+# Download btn = (25.2,14)cm 
+#
+#
+#
+#
+logo() {
+    echo -e " _   _  _____   _____     __        _______ _____ ____  
+| \ | |/ _ \ \ / / _ \    \ \      / / ____| ____| __ ) 
+|  \| | | | \ V / | | |____\ \ /\ / /|  _| |  _| |  _ \ 
+| |\  | |_| || || |_| |_____\ V  V / | |___| |___| |_) |
+|_| \_|\___/ |_| \___/       \_/\_/  |_____|_____|____/ \n\n"
+}
+deps=(
+    ydotool
+    hyprctl
+    curl
+    awk
+    jq
+    notify-send
+    sleep
+)
+
+for depends in "${deps[@]}"; do
+    command -v "$depends" > /dev/null 2>&1 || {
+        echo "error: $depends is not installed"
+        exit 1
+    }
+done
+
+
+Ep_x="428.536"
+Ep_y="388.318"
+
+Download_x="698.972"
+Download_y="388.318"
+
+pid=$(hyprctl activewindow -j | jq -r '.pid')
+
+measure_latency() {
+    local total=0
+    local count=5
+
+    echo "|...| Measuring latency..."
+    for ((check=0; check<$count; check++)); do
+        latency=$(curl -o /dev/null -s -w '%{time_total}' https://animepahe.pw)
+        total=$(awk "BEGIN {print $total + $latency}")
+    done
+
+    latency=$(awk "BEGIN {print $total / $count}")
+    sleep=$(echo "$latency * 3"|bc)
+    sleep=$(printf '%.5f\n' "$sleep")
+    echo "|✓| Measured avarage latency with 5 pings as: $sleep"
+}
+
+latency() {
+    [[ -z $1 || ! -n $1 || $1 -lt 1 ]] && {
+        echo "|🤔| Sleep time not given, will be set using avarage latency calculation."
+        measure_latency
+        sleep=1
+    } || {
+        echo "setting sleep time as given $1"
+        sleep=$1
+    }
+}
+info() {
+    read -p "No of episodes: " ep_count
+
+    [[ -z $ep_count || ! -n $ep_count || $ep_count -lt 1 ]] && {
+        [[ -z $ep_count ]] && echo "|⛌| Enter the number of episodes, cannot be a zero"
+        [[ ! -n $ep_count ]] && echo "|⛌| Number of episodes should be a NUMBER"
+        [[ $ep_count -lt 1 ]] && echo "|⛌| Enter a valid value. $ep_count cannot be a episode count!"
+        exit 1
+    }
+
+
+    read -p "Quality (360p=1; 720p=2, 1080p=3)(1/2/3): " quality
+
+    [[ -z $quality || ! -n $quality || $quality -gt 3 || $quality -lt 1 ]] && {
+        [[ -z $quality ]] && echo "|⛌| Quality should be given, cannot be a 0"
+        [[ ! -n $quality ]] && echo "|⛌| Invalid quality, has to be 1/2/3"
+        [[ $quality -gt 3 || $quality -lt 1 ]] && echo "|⛌| Invalid quality option. Exceeds the given boundaries! only (1/2/3)"
+        exit 1
+    }
+
+
+    read -p "Sub(1)/Dub(2) (1/2): " lang
+
+    [[ -z $lang || ! -n $lang || $lang -gt 2 || $lang -lt 1 ]] && {
+        [[ -z $lang ]] && echo "|⛌| Specify either sub or dub, cannot be a 0"
+        [[ ! -n $lang ]] && echo "|⛌| Sub/dub status should be either 1 or 2, a NUMBER"
+        [[ $lang -gt 2 || $lang -lt 1 ]] && echo "|⛌| Invalid Sub/Dub option exceeds given boundaries. Only (1/2)"
+        exit 1
+    }
+
+    read -p "Do you want to download the automatically too? I mean not just opening kwik tabs? (y/n): " down_verify
+    down_verify=${down_verify,,}
+    [[ -z $down_verify || ! -n $down_verify ]] && {
+        [[ $down_verify != "y" || $down_verify != "n" ]] && echo "|⛌| Should be (Y/y)/(N/n)"
+        exit 1
+    }
+
+    read -p "Is dub available at animepahe? (go and check!)(y/n): " lang_avail
+    lang_avail=${lang_avail,,}
+
+    [[ -z $lang_avail || ! -n $lang_avail ]] && {
+        [[ $lang_avail != "y" || $lang_avail != "n" ]] && echo "|⛌| Should be (Y/y)/(N/n)"
+        exit 1
+    }
+}
+
+
+a_move() {
+    ydotool mousemove -a -x $1 -y $2 
+}
+
+move() {
+    ydotool mousemove -x $1 -y $2
+}
+
+click() {
+    ydotool click 0xC0
+}
+
+key_press() {
+    hyprctl dispatch 'hl.dsp.send_shortcut({mods = "'"$1"'", key = "'"$2"'", window = "class:^(firefox)$"})'
+}
+
+press_tab() {
+    for ((tab=0; tab<$1; tab++)); do
+        key_press "" "TAB"
+    done
+}
+
+layout_validation() {
+    pgrep ydotoold --quiet && {
+        echo "|✓| ydotool daemon is running" 
+        } || {
+        echo "|🤔| Ydotool isn't running..."
+        echo "|✓| Initializing ydotoold..."
+        ydotoold > /dev/null &
+        sleep 1
+    }
+    pgrep firefox --quiet && {
+        echo "|✓| firefox is running. Make sure it's fresh with no anyother tabs!"
+    } || {
+        echo "|⛌| firefox isn't running please open a new window with no other tabs" 
+        echo "exiting..."
+        exit 1
+    }
+    [[ $(hyprctl getoption input:accel_profile -j | jq -r '.str') != "flat" ]] && {
+        echo -e "|⛌| Hyprland mouse accel profile has to be flat\nSet your config as:\n\nhl.config({\n    input = {\n        accel_profile = \"flat\"\n    }\n}) "
+        exit 1
+    } || {
+        echo "|✓| Hyprland cursor acceleration profile has set to flat."
+    }
+    echo "|✓| Setting valid firefox sizes and positions"
+    hyprctl dispatch 'hl.dsp.window.float({ window = "class:^(firefox)$" })' > /dev/null
+    hyprctl dispatch 'hl.dsp.window.resize({ window = "class:^(firefox)$", x = 1894, y = 1054 })' > /dev/null
+    hyprctl dispatch 'hl.dsp.window.move({ window = "class:^(firefox)$", x = 13, y = 13 })' > /dev/null
+    sleep 1
+}
+
+entry_ygap_D="-16.642"
+
+count=1
+tabbed_full_layout() {
+    a_move "$Ep_x" "$Ep_y"
+    click
+    sleep $sleep
+    for ((TAB=0; TAB<=$count; TAB++)); do
+        key_press "" "TAB"
+    done
+    sleep 0.5
+    key_press "" "RETURN"
+    sleep $sleep
+    
+    ((count++))
+
+    a_move "$Download_x" "$Download_y"
+    click
+    # sub   
+    [[ $lang == "1" ]] && {
+        # 360p
+        [[ $quality == "1" ]] && {
+            press_tab 1
+            sleep $sleep
+        }
+
+        # 720p
+        [[ $quality == "2" ]] && {
+            press_tab 2
+            sleep $sleep
+        }
+
+        #1080
+        [[ $quality == "3" ]] && {
+            press_tab 3
+            sleep $sleep
+        }
+        key_press "" "RETURN"
+        sleep $sleep
+        key_press "CTRL" "PRIOR"
+        sleep $sleep
+    }
+    # dub
+    [[ $lang == "2" && $lang_avail == "y" ]] && {
+        # 360p
+        [[ $quality == "1" ]] && {
+            press_tab 4
+            sleep $sleep
+        }
+
+        # 720p
+        [[ $quality == "2" ]] && {
+            press_tab 5
+            sleep $sleep
+        }
+
+        #1080
+        [[ $quality == "3" ]] && {
+            press_tab 6
+            sleep $sleep
+        }
+        key_press "" "RETURN"
+        sleep $sleep
+        key_press "CTRL" "PRIOR"
+        sleep $sleep
+    }
+}
+
+download() {
+    key_press "CTRL" "PRIOR"
+    sleep $sleep
+    a_move "499.266" "225.18"
+    click
+    sleep $sleep
+    a_move "750.584" "175.195"
+    sleep $sleep
+}
+
+main() {
+    clear
+    logo
+    layout_validation
+    latency
+    echo -e "\n"
+    info
+    echo "Starting in 2 seconds."
+    echo "Focusing browser"
+    sleep 0.5
+    hyprctl dispatch 'hl.dsp.focus({ window = "class:^(firefox)$" })'
+    sleep 4
+    for ((i=1; i<=$ep_count; i++)); do
+        tabbed_full_layout
+    done
+    
+    sleep 5
+    [[ $down_verify == "y" ]] && {
+        for ((d_eps=1; d_eps<=$ep_count;d_eps++)); do
+            [[ $d_eps == 1 ]] && {
+                key_press "CTRL" "PRIOR"
+                catpcha=$(notify-send "Noyo Weeb" "Please handle only this one's downloading because cloudfare messes up, afterwards enter \"y\" at terminal" --action=1=Done --action=2="Nothing to worry, no catpcha" -u critical)
+                [[ $catpcha == "2" ]] && key_press "CTRL" "NEXT" && download
+            } || {
+            download
+            }
+        done
+    }
+    hyprctl dispatch 'hl.dsp.focus({ window = "pid:'"$pid"'"})'
+}
+
+main
+
+# count means no of eps 1 exptra TAB for getting focus of the button set
+# So in the for do the count should be increased every loop in order to go ep by ep so ((count++)) with a while [[ $count !== $no_of_eps ]] should be there
