@@ -238,6 +238,7 @@ download() {
     click
     sleep $sleep
     a_move "750.584" "175.195"
+    click
     sleep $sleep
 }
 
