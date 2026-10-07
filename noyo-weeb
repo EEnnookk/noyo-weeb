@@ -118,17 +118,27 @@ info() {
 
     read -p "Want to download automatically too? I mean not just opening kwik tabs? (y/n): " down_verify
     down_verify=${down_verify,,}
-    [[ -z $down_verify || ! -n $down_verify ]] && {
-        [[ $down_verify != "y" || $down_verify != "n" ]] && echo "|⛌| Should be (Y/y)/(N/n)"
+    [[ -z $down_verify ]] && {
+        echo "Invalid, cannot be null"
         exit 1
+    } || {
+        [[ $down_verify != "y" && $down_verify != "n" ]] && {
+            echo "|⛌| Should be (Y/y)/(N/n)"
+            exit 1
+        }
     }
 
     read -p "Is dub available at animepahe? (go and check! else sub will be downloaded 😭)(y/n): " lang_avail
     lang_avail=${lang_avail,,}
 
-    [[ -z $lang_avail || ! -n $lang_avail ]] && {
-        [[ $lang_avail != "y" || $lang_avail != "n" ]] && echo "|⛌| Should be (Y/y)/(N/n)"
+    [[ -z $lang_avail ]] && {
+        echo "Invalid, cannot be null"
         exit 1
+    } || {
+        [[ $lang_avail != "y" && $lang_avail != "n" ]] && {
+            echo "|⛌| Should be (Y/y)/(N/n)"
+            exit 1
+        }
     }
 }
 
