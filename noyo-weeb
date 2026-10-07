@@ -21,6 +21,7 @@ deps=(
     jq
     notify-send
     sleep
+    fzf
 )
 
 for depends in "${deps[@]}"; do
@@ -65,44 +66,64 @@ latency() {
         sleep=$1
     }
 }
+
+pfzf() {
+    printf '%s\n' $@ |
+        fzf \
+            --style=full:rounded \
+            --height='~-1' \
+            --margin='1,10,10' \
+            --padding=1 \
+            --border=rounded \
+            --border-label="$label" \
+            --prompt='> ' \
+            --info=inline-right:'😘 ' \
+            --info-command='echo hi' \
+            --preview="echo $prev" \
+            --preview-window='right,25'
+}
+
 info() {
     read -p "No of episodes: " ep_count
 
-    [[ -z $ep_count || ! -n $ep_count || $ep_count -lt 1 ]] && {
+    [[ -z $ep_count || $ep_count -lt 1 ]] && {
         [[ -z $ep_count ]] && echo "|⛌| Enter the number of episodes, cannot be a zero"
-        [[ ! -n $ep_count ]] && echo "|⛌| Number of episodes should be a NUMBER"
         [[ $ep_count -lt 1 ]] && echo "|⛌| Enter a valid value. $ep_count cannot be a episode count!"
         exit 1
     }
 
+    quality=$(label="Quality Selector"
+                prev="{} quality will be used!"
+                pfzf "360p" "720p" "1080p"
+                )
 
-    read -p "Quality (360p=1; 720p=2, 1080p=3)(1/2/3): " quality
-
-    [[ -z $quality || ! -n $quality || $quality -gt 3 || $quality -lt 1 ]] && {
-        [[ -z $quality ]] && echo "|⛌| Quality should be given, cannot be a 0"
-        [[ ! -n $quality ]] && echo "|⛌| Invalid quality, has to be 1/2/3"
-        [[ $quality -gt 3 || $quality -lt 1 ]] && echo "|⛌| Invalid quality option. Exceeds the given boundaries! only (1/2/3)"
-        exit 1
-    }
+    case $quality in
+        "360p") quality=1; echo "Quality set: 360p" ;;
+        "720p") quality=2; echo "Quality set: 720p" ;;
+        "1080p") quality=3; echo "Quality set: 1080p" ;;
+        *) echo -e "|⛌| No quality provided\nexiting..."; exit 1
+    esac
 
 
-    read -p "Sub(1)/Dub(2) (1/2): " lang
+    lang=$(label="Sub/Dub Selector"
+            prev="{} will be downloaded!"
+            pfzf "Sub" "Dub"
+            )
 
-    [[ -z $lang || ! -n $lang || $lang -gt 2 || $lang -lt 1 ]] && {
-        [[ -z $lang ]] && echo "|⛌| Specify either sub or dub, cannot be a 0"
-        [[ ! -n $lang ]] && echo "|⛌| Sub/dub status should be either 1 or 2, a NUMBER"
-        [[ $lang -gt 2 || $lang -lt 1 ]] && echo "|⛌| Invalid Sub/Dub option exceeds given boundaries. Only (1/2)"
-        exit 1
-    }
+    case $lang in
+        "Sub") lang=1; echo "Language set: Sub" ;;
+        "Dub") lang=2 ; echo "Language set: Dub" ;;
+        *) echo "|⛌| No language option provided\nexiting..."; exit 1
+    esac
 
-    read -p "Do you want to download the automatically too? I mean not just opening kwik tabs? (y/n): " down_verify
+    read -p "Want to download automatically too? I mean not just opening kwik tabs? (y/n): " down_verify
     down_verify=${down_verify,,}
     [[ -z $down_verify || ! -n $down_verify ]] && {
         [[ $down_verify != "y" || $down_verify != "n" ]] && echo "|⛌| Should be (Y/y)/(N/n)"
         exit 1
     }
 
-    read -p "Is dub available at animepahe? (go and check!)(y/n): " lang_avail
+    read -p "Is dub available at animepahe? (go and check! else sub will be downloaded 😭)(y/n): " lang_avail
     lang_avail=${lang_avail,,}
 
     [[ -z $lang_avail || ! -n $lang_avail ]] && {
@@ -274,6 +295,3 @@ main() {
 }
 
 main
-
-# count means no of eps 1 exptra TAB for getting focus of the button set
-# So in the for do the count should be increased every loop in order to go ep by ep so ((count++)) with a while [[ $count !== $no_of_eps ]] should be there
