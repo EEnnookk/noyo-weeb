@@ -268,7 +268,7 @@ download() {
     a_move "499.266" "225.18"
     click
     sleep $sleep
-    a_move "750.584" "175.195"
+    a_move "750.584" "150.195"
     click
     sleep $sleep
 }
