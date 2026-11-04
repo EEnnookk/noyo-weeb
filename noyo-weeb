@@ -13,6 +13,7 @@ logo() {
 | |\  | |_| || || |_| |_____\ V  V / | |___| |___| |_) |
 |_| \_|\___/ |_| \___/       \_/\_/  |_____|_____|____/ \n\n"
 }
+sleep_time="$1"
 deps=(
     ydotool
     hyprctl
@@ -57,13 +58,13 @@ measure_latency() {
 }
 
 latency() {
-    [[ -z $1 || ! -n $1 || $1 -lt 1 ]] && {
+    [[ -z $sleep_time || $sleep_time -lt 1 ]] && {
         echo "|🤔| Sleep time not given, will be set using avarage latency calculation."
         measure_latency
         sleep=1
     } || {
-        echo "setting sleep time as given $1"
-        sleep=$1
+        echo "setting sleep time as given $sleep_time"
+        sleep="$sleep_time"
     }
 }
 
@@ -262,15 +263,34 @@ tabbed_full_layout() {
     }
 }
 
+find_btn_r(){
+    sleep 1
+    redirect_page_y_center=$(./button_finder r)
+}
+
+find_btn_d(){
+    sleep 1
+    download_page_y_center=$(./button_finder d)
+}
+
 download() {
     key_press "CTRL" "PRIOR"
     sleep $sleep
-    a_move "499.266" "225.18"
+    if [[ $button_found == "" ]]; then
+        find_btn_r
+    fi
+    echo $redirect_page_y_center
+    [[ $redirect_page_y_center == "" ]]&& exit 1;
+    a_move "499.266" "$redirect_page_y_center"
     click
     sleep $sleep
-    a_move "750.584" "150.195"
+    if [[ $button_found == "" ]]; then
+        find_btn_d
+    fi
+    a_move "750.584" "$download_page_y_center"
     click
     sleep $sleep
+    ((++button_found))
 }
 
 main() {
@@ -288,7 +308,7 @@ main() {
     for ((i=1; i<=$ep_count; i++)); do
         tabbed_full_layout
     done
-    
+
     sleep 5
     [[ $down_verify == "y" ]] && {
         for ((d_eps=1; d_eps<=$ep_count;d_eps++)); do
@@ -305,3 +325,4 @@ main() {
 }
 
 main
+#find_btn_r
