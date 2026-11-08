@@ -40,7 +40,7 @@ Download_x="698.972"
 Download_y="388.318"
 
 pid=$(hyprctl activewindow -j | jq -r '.pid')
-
+term_workspace=$(hyprctl activeworkspace -j|jq -r '.id')
 measure_latency() {
     local total=0
     local count=5
@@ -61,7 +61,6 @@ latency() {
     [[ -z $sleep_time || $sleep_time -lt 1 ]] && {
         echo "|🤔| Sleep time not given, will be set using avarage latency calculation."
         measure_latency
-        sleep=1
     } || {
         echo "setting sleep time as given $sleep_time"
         sleep="$sleep_time"
@@ -85,6 +84,28 @@ pfzf() {
 }
 
 info() {
+    echo -n "Name of the anime (press 'END' if you search it yourself):"
+    read -rn3 ani_name
+    if [[ "$ani_name" == $'\e[F' || -z "$ani_name" ]]; then
+        :
+    else
+        read -r rest
+        ani_name+="$rest"
+    fi
+    echo -e ""
+    case "$ani_name" in
+        $'\e[F')
+            echo "|✓| Skipping automated searching for the anime!"
+            ani_search_skip=true
+            ;;
+        "")
+            echo "|⛌| ani_name cannot be blank! Enter a valid name!"
+            exit 1
+            ;;
+        *)
+            echo "|✓| name selected as '$ani_name'!"
+    esac
+
     read -p "No of episodes: " ep_count
 
     [[ -z $ep_count || $ep_count -lt 1 ]] && {
@@ -114,7 +135,7 @@ info() {
     case $lang in
         "Sub") lang=1; echo "Language set: Sub" ;;
         "Dub") lang=2 ; echo "Language set: Dub" ;;
-        *) echo "|⛌| No language option provided\nexiting..."; exit 1
+        *) echo -e "|⛌| No language option provided\nexiting..."; exit 1
     esac
 
     read -p "Want to download automatically too? I mean not just opening kwik tabs? (y/n): " down_verify
@@ -145,19 +166,19 @@ info() {
 
 
 a_move() {
-    ydotool mousemove -a -x $1 -y $2 
+    ydotool mousemove -a -x $1 -y $2 &>/dev/null
 }
 
 move() {
-    ydotool mousemove -x $1 -y $2
+    ydotool mousemove -x $1 -y $2 &>/dev/null
 }
 
 click() {
-    ydotool click 0xC0
+    ydotool click 0xC0 2&>/dev/null
 }
 
 key_press() {
-    hyprctl dispatch 'hl.dsp.send_shortcut({mods = "'"$1"'", key = "'"$2"'", window = "class:^(firefox)$"})'
+    hyprctl dispatch 'hl.dsp.send_shortcut({mods = "'"$1"'", key = "'"$2"'", window = "class:^(firefox)$"})'>/dev/null
 }
 
 press_tab() {
@@ -176,11 +197,26 @@ layout_validation() {
         sleep 1
     }
     pgrep firefox --quiet && {
-        echo "|✓| firefox is running. Make sure it's fresh with no anyother tabs!"
+        [[ "$ani_search_skip" == "true" ]] && {
+            echo "|✓| firefox is running. Make sure it's fresh with no anyother tabs!"
+        } || {
+            echo "|✓| firefox is running. killing and restarting is fresh with no anyother tabs!"
+            killall firefox 2&> /dev/null
+            hyprctl dispatch 'hl.dsp.focus({ workspace = "'"$((term_workspace + 1))"'" })' 2&>/dev/null
+            firefox "https://animepahe.pw" &
+            key_press "CTRL" "R"
+            sleep 2
+            focus_term
+        }
     } || {
-        echo "|⛌| firefox isn't running please open a new window with no other tabs" 
-        echo "exiting..."
-        exit 1
+        echo "|🤔| firefox isn't running!"
+        echo "|✓| Opening it in another workspace as fresh!"
+        sleep 1
+        hyprctl dispatch 'hl.dsp.focus({ workspace = "'"$((term_workspace + 1))"'" })'
+        firefox "https://animepahe.pw" &
+        sleep 2
+        key_press "CTRL" "R"
+        focus_term 
     }
     [[ $(hyprctl getoption input:accel_profile -j | jq -r '.str') != "flat" ]] && {
         echo -e "|⛌| Hyprland mouse accel profile has to be flat\nSet your config as:\n\nhl.config({\n    input = {\n        accel_profile = \"flat\"\n    }\n}) "
@@ -193,6 +229,14 @@ layout_validation() {
     hyprctl dispatch 'hl.dsp.window.resize({ window = "class:^(firefox)$", x = 1894, y = 1054 })' > /dev/null
     hyprctl dispatch 'hl.dsp.window.move({ window = "class:^(firefox)$", x = 13, y = 13 })' > /dev/null
     sleep 1
+}
+
+focus_ffox() {
+    hyprctl dispatch 'hl.dsp.focus({ window = "class:^(firefox)$" })'>/dev/null
+}
+
+focus_term() {
+    hyprctl dispatch 'hl.dsp.focus({ window = "pid:'"$pid"'"})'>/dev/null
 }
 
 entry_ygap_D="-16.642"
@@ -263,48 +307,151 @@ tabbed_full_layout() {
     }
 }
 
+search_anime() {
+    a_move "675" "40"
+    click
+    #press_tab 4
+    ./searchName "$ani_name"
+
+    sleep 4
+    readThing="$(ydotool mousemove -a -x 675 -y 39; grim -g "1172,115 364x55" - |\
+     tesseract stdin stdout -l eng 2>/dev/null |\
+     sed -n '1p')"
+
+    focus_term
+    case "${readThing,,}" in
+        "no results found")
+            echo "|⛌| That looks like it's not there! Nothing to do!"
+            exit 1
+            ;;
+        "${ani_name,,}")
+            echo "|✓| Name matches exactly to the search result! Continuing"
+            sleep 1
+            key_press "" "DOWN"
+            key_press "" "RETURN"
+            ;;
+        "")
+            echo "|⛌| Searching error! Try again!"
+            exit 1
+            ;;
+        *)
+            echo -n "|🤔| Name was found as $readThing. Continue? (y/n): "
+            read -r ani_name_unsure
+
+            case "${ani_name_unsure,,}" in
+                "y")
+                    key_press "" "DOWN"
+                    key_press "" "RETURN" 
+                ;;
+                "n")
+                    echo "Exiting..."
+                    exit 0
+                ;;
+                *)
+                    echo "Invalid statement! Exiting..."
+                    exit 1
+            esac
+    esac
+    focus_ffox
+}
+
+journeyToAnime() {
+    # Focus last episode and click
+    key_press "SHIFT" "TAB"
+    key_press "" "RETURN"
+}
+
 find_btn_r(){
     sleep 1
-    redirect_page_y_center=$(./button_finder r)
+    redirect_page_y_center=$(./button_finder "r" "$retry_count")
 }
 
 find_btn_d(){
     sleep 1
-    download_page_y_center=$(./button_finder d)
+    download_page_y_center=$(./button_finder "d" "$retry_count")
 }
-
+retry_count=1
 download() {
+    # movement from animepahe page to episode redirect page
+    # and to the next episode on next loop so on
     key_press "CTRL" "PRIOR"
     sleep $sleep
-    if [[ $button_found == "" ]]; then
-        find_btn_r
-    fi
-    echo $redirect_page_y_center
-    [[ $redirect_page_y_center == "" ]]&& exit 1;
+
+    # Runs on 1st time
+        while [[ $rButtonFound != true ]]; do
+            find_btn_r
+            a_move "499.266" "$redirect_page_y_center"
+            sleep $sleep
+            focus_term
+            echo -en "\nIs it correct? (y/n/kinda up(u)/kinda low(d)): "
+            read -rn1 check
+            
+            case "${check,,}" in
+                'y')
+                    rButtonFound=true
+                    retry_count=0
+                    ;;
+                'u')
+                    ((retry_count--))
+                    ;;
+                'd')
+                    ((retry_count++))
+            esac
+
+            focus_ffox
+        done
+
     a_move "499.266" "$redirect_page_y_center"
     click
     sleep $sleep
-    if [[ $button_found == "" ]]; then
+
+    while [[ $dButtonFound != true ]]; do
         find_btn_d
-    fi
+        a_move "750.584" "$download_page_y_center"
+        sleep $sleep
+        focus_term
+        echo -en "\nIs it correct? (y/n/kinda up(u)/kinda low(d)): " 
+        read -rn1 check
+            
+            case "${check,,}" in
+                'y')
+                    dButtonFound=true
+                    retry_count=0
+                    ;;
+                'u')
+                    ((retry_count--))
+                    ;;
+                'd')
+                    ((retry_count++))
+            esac
+        focus_ffox
+    done
+    
     a_move "750.584" "$download_page_y_center"
     click
     sleep $sleep
-    ((++button_found))
 }
 
 main() {
     clear
     logo
+    info
     layout_validation
     latency
-    echo -e "\n"
-    info
     echo "Starting in 2 seconds."
     echo "Focusing browser"
     sleep 0.5
-    hyprctl dispatch 'hl.dsp.focus({ window = "class:^(firefox)$" })'
-    sleep 4
+    focus_ffox
+    sleep 2
+    
+    if [[ "$ani_search_skip" != "true" ]]; then
+        search_anime "ani_name"
+    
+        sleep $sleep
+        journeyToAnime
+        sleep $sleep
+    fi
+
     for ((i=1; i<=$ep_count; i++)); do
         tabbed_full_layout
     done
@@ -321,8 +468,7 @@ main() {
             }
         done
     }
-    hyprctl dispatch 'hl.dsp.focus({ window = "pid:'"$pid"'"})'
+    focus_term
 }
 
 main
-#find_btn_r

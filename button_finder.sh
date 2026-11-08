@@ -1,33 +1,36 @@
 #!/bin/bash
-dstartsAt=127
-dendsAt=196
+dstartsAt=145
+dendsAt=195
 dx=700
 
-rstartsAt=225
-rendsAt=270
+#rstartsAt=200
+#rendsAt=250
+rstartsAt=250
+rendsAt=350
 rx=435
 
 step=2
 
 mode=$1
-
-[[ -z "$mode" ]] && {
-    echo -e "Specify a mode\tr|d"
+diff=$2
+[[ -z "$mode" || -z "$diff" ]] && {
+    echo -e "Specify a mode\tr|d\nSpecify a diff value\t[int]"
     exit 1
 }
+
 [[ "$mode" != 'r' && "$mode" != 'd' ]] && {
     echo -e "Invalid mode\tenter r|d"
     exit 1
 }
 
 if [[ "$mode" == 'r' ]]; then
-    startAt=$rstartsAt
-    endAt=$rendsAt
+    startAt=$((rstartsAt+10*diff))
+    endAt=$((rendsAt+10*diff))
     x=$rx
 
 elif [[ "$mode" == 'd' ]]; then
-    startAt=$dstartsAt
-    endAt=$dendsAt
+    startAt=$((dstartsAt+10*diff))
+    endAt=$((dendsAt+10*diff))
     x=$dx
 fi
 sleep 2

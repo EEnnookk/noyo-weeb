@@ -1,0 +1,93 @@
+#!/bin/bash
+breaker() {
+    chars=()
+    while IFS= read -r -n 1 char; do
+        chars+=("$char")
+    done <<< $url
+}
+
+send() {
+    hyprctl dispatch 'hl.dsp.send_shortcut({ mods = "'"$2"'", key = "'"$1"'", window = "class:^(firefox)$" })'
+}
+
+type_char() {
+    local char="$1"
+    local mods=""
+    local key="$char"
+
+    case "$char" in
+        " ") key="SPACE"; mods="" ;;
+
+        "!") key="1"; mods="SHIFT" ;;
+        "@") key="2"; mods="SHIFT" ;;
+        "#") key="3"; mods="SHIFT" ;;
+        "$") key="4"; mods="SHIFT" ;;
+        "%") key="5"; mods="SHIFT" ;;
+        "^") key="6"; mods="SHIFT" ;;
+        "&") key="7"; mods="SHIFT" ;;
+        "*") key="8"; mods="SHIFT" ;;
+        "(") key="9"; mods="SHIFT" ;;
+        ")") key="0"; mods="SHIFT" ;;
+
+        "-") key="MINUS"; mods="" ;;
+        "_") key="MINUS"; mods="SHIFT" ;;
+        "=") key="EQUAL"; mods="" ;;
+        "+") key="EQUAL"; mods="SHIFT" ;;
+
+        "[") key="LEFTBRACKET"; mods="" ;;
+        "{") key="LEFTBRACKET"; mods="SHIFT" ;;
+        "]") key="RIGHTBRACKET"; mods="" ;;
+        "}") key="RIGHTBRACKET"; mods="SHIFT" ;;
+
+        "\\") key="BACKSLASH"; mods="" ;;
+        "|") key="BACKSLASH"; mods="SHIFT" ;;
+
+        ";") key="SEMICOLON"; mods="" ;;
+        ":") key="SEMICOLON"; mods="SHIFT" ;;
+
+        "'") key="APOSTROPHE"; mods="" ;;
+        '"') key="APOSTROPHE"; mods="SHIFT" ;;
+
+        ",") key="COMMA"; mods="" ;;
+        "<") key="COMMA"; mods="SHIFT" ;;
+
+        ".") key="PERIOD"; mods="" ;;
+        ">") key="PERIOD"; mods="SHIFT" ;;
+
+        "/") key="SLASH"; mods="" ;;
+        "?") key="SLASH"; mods="SHIFT" ;;
+
+        [A-Z])
+            key="${char,,}"
+            mods="SHIFT"
+            ;;
+
+        *)
+            key="$char"
+            mods=""
+            ;;
+    esac
+
+send "$key" "$mods"
+
+}
+
+
+    # [[ -z $url ]] && {
+    #     url=$($PREFERRED_API "This is the first time you are here so search for something you like.")
+    # } || {
+    #     url=$($PREFERRED_API "This is what you searched last time: $url")
+    # }
+#while true; do
+#	echo -n "Enter: "
+#	read -r url
+
+	url="$1"
+    breaker "$url"
+    #send "l" "CTRL" > /dev/null
+    for i in "${!chars[@]}"; do
+        type_char "${chars[i]}" > /dev/null
+        sleep 0.01
+    done
+    #send "RETURN" > /dev/null
+#done

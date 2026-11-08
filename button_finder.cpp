@@ -6,9 +6,11 @@
 
 int main(int argc,char* argv[])
 {
-    if (argc < 2)
+    if (argc < 3)
         return 1;
     const char mode = argv[1][0];
+    const std::string diff = argv[2];
+
     int targetColor;
     if(mode != 'r' && mode != 'd')
         return 1;
@@ -18,7 +20,7 @@ int main(int argc,char* argv[])
     }else if (mode == 'd'){
         targetColor=255255255;
     }
-    std::string command = std::string("./button_finder.sh ") + mode;
+    std::string command = std::string("./button_finder.sh ") + mode + " " + diff;
 
     FILE* pipe = popen(command.c_str(), "r");
     if (!pipe) return 1;
