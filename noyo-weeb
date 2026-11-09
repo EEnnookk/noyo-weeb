@@ -84,9 +84,9 @@ pfzf() {
 }
 
 info() {
-    echo -n "Name of the anime (press 'END' if you search it yourself):"
-    read -rn3 ani_name
-    if [[ "$ani_name" == $'\e[F' || -z "$ani_name" ]]; then
+    echo -n "Name of the anime (press 'ESC' if you search it yourself):"
+    read -rn1 ani_name
+    if [[ "$ani_name" == $'\e' || -z "$ani_name" ]]; then
         :
     else
         read -r rest
@@ -94,7 +94,7 @@ info() {
     fi
     echo -e ""
     case "$ani_name" in
-        $'\e[F')
+        $'\e')
             echo "|✓| Skipping automated searching for the anime!"
             ani_search_skip=true
             ;;
@@ -201,8 +201,8 @@ layout_validation() {
             echo "|✓| firefox is running. Make sure it's fresh with no anyother tabs!"
         } || {
             echo "|✓| firefox is running. killing and restarting is fresh with no anyother tabs!"
-            killall firefox 2&> /dev/null
-            hyprctl dispatch 'hl.dsp.focus({ workspace = "'"$((term_workspace + 1))"'" })' 2&>/dev/null
+            killall firefox &> /dev/null
+            hyprctl dispatch 'hl.dsp.focus({ workspace = "'"$((term_workspace + 1))"'" })'
             firefox "https://animepahe.pw" &
             key_press "CTRL" "R"
             sleep 2
@@ -427,6 +427,8 @@ download() {
         focus_ffox
     done
     
+    #extra sleep to help get focus on button correctly
+    sleep $(echo "$sleep * 0.5"|bc -l)
     a_move "750.584" "$download_page_y_center"
     click
     sleep $sleep
